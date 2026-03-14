@@ -1,0 +1,12 @@
+# ============================================================
+# 微调依赖 (阶段五) — 仅在 NVIDIA GPU 机器上安装
+# 需要 CUDA 和 Linux/WSL2 环境
+#
+# 安装: pip install -r requirements-finetune.txt
+# 或使用 Google Colab / Kaggle 免费 GPU
+# ============================================================
+
+unsloth
+peft
+bitsandbytes
+trl

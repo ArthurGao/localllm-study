@@ -38,6 +38,10 @@ ollama run qwen3:4b "你好，简单介绍一下自己"
 python -m venv llm-learn
 source llm-learn/bin/activate  # Windows: llm-learn\Scripts\activate
 
+conda create -n llm-learn python=3.13 -y
+conda activate llm-learn  # 如果使用 Conda
+
+
 pip install ollama langchain langchain-community langchain-ollama \
             chromadb ragas unsloth datasets transformers \
             torch accelerate peft bitsandbytes fastapi uvicorn \

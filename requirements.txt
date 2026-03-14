@@ -1,6 +1,11 @@
 # ============================================================
 # LLM 本地学习项目依赖
-# 安装: conda activate llm-learn && pip install -r requirements.txt
+# 安装步骤:
+#   conda activate llm-learn
+#   pip install -r requirements.txt
+#
+# 微调依赖 (需要 NVIDIA GPU):
+#   pip install -r requirements-finetune.txt
 # ============================================================
 
 # --- 核心：环境变量管理 ---
@@ -12,6 +17,10 @@ ollama
 # --- 阶段一：Groq 云端 API ---
 groq
 langchain-groq
+
+# --- PyTorch (CPU-only, macOS/Linux) ---
+torch
+torchvision
 
 # --- 阶段二/三：RAG 管道 ---
 langchain
@@ -26,13 +35,9 @@ sentence-transformers
 ragas
 datasets
 
-# --- 阶段五：微调 (LoRA/QLoRA) ---
-unsloth
+# --- 共用 Transformers 工具 ---
 transformers
 accelerate
-peft
-bitsandbytes
-trl
 
 # --- 阶段六：综合项目 API ---
 fastapi

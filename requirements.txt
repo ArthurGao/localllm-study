@@ -1,0 +1,32 @@
+# ============================================================
+# LLM 本地学习项目依赖
+# 安装: conda activate llm-learn && pip install -r requirements.txt
+# ============================================================
+
+# --- 阶段一：Ollama 基础交互 ---
+ollama
+
+# --- 阶段二/三：RAG 管道 ---
+langchain
+langchain-community
+langchain-ollama
+langchain-text-splitters
+chromadb
+pypdf
+sentence-transformers
+
+# --- 阶段四：RAG 评估 ---
+ragas
+datasets
+
+# --- 阶段五：微调 (LoRA/QLoRA) ---
+unsloth
+transformers
+accelerate
+peft
+bitsandbytes
+trl
+
+# --- 阶段六：综合项目 API ---
+fastapi
+uvicorn

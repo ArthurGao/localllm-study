@@ -3,16 +3,27 @@ RAG 检索增强生成链
 ==================
 功能：
 1. 使用 LangChain 构建 RAG 管道
-2. ChromaDB 检索 + Ollama Qwen3 生成
-3. 支持自定义 Prompt Template
-4. 支持流式输出
+2. 支持 Ollama（本地）和 Groq（云端）两种 LLM 后端
+3. ChromaDB 检索 + LLM 生成
+4. 支持自定义 Prompt Template
+5. 支持流式输出
 
 使用方式：
     conda activate llm-learn
     python 02_rag/rag_chain.py --query "你的问题"
+
+后端切换：
+    修改 .env 文件中的 LLM_BACKEND=ollama 或 LLM_BACKEND=groq
 """
 
+import sys
+import os
 import argparse
+
+# 让 import config 能找到项目根目录
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from config import get_llm_config
 
 from langchain_ollama import OllamaLLM, OllamaEmbeddings
 from langchain_community.vectorstores import Chroma
@@ -36,7 +47,7 @@ def get_retriever(
     核心概念：
     - Retriever: LangChain 的检索抽象，封装了"问题 → 相关文档"的过程
     - search_kwargs["k"]: 返回的文档数量，越多上下文越丰富但也越冗余
-    - 这里使用 LangChain 的 Chroma 封装，比直接用 chromadb 更方便集成
+    - Embedding 始终使用 Ollama（本地），即使 LLM 用 Groq
     """
     embeddings = OllamaEmbeddings(model=embedding_model)
 
@@ -80,11 +91,50 @@ rag_prompt = PromptTemplate(
 
 
 # ============================================================
-# 3. 构建 RAG Chain
+# 3. 获取 LangChain LLM（支持 Ollama / Groq）
+# ============================================================
+def get_langchain_llm(
+    temperature: float = 0.1,
+    num_ctx: int = 8192,
+    streaming: bool = False,
+):
+    """
+    根据 .env 配置返回对应的 LangChain LLM 实例。
+
+    - Ollama: 使用 langchain_ollama.OllamaLLM
+    - Groq: 使用 langchain_groq.ChatGroq
+    """
+    cfg = get_llm_config()
+    callbacks = [StreamingStdOutCallbackHandler()] if streaming else []
+
+    if cfg["backend"] == "groq":
+        from langchain_groq import ChatGroq
+
+        llm = ChatGroq(
+            model=cfg["model"],
+            api_key=cfg["groq_api_key"],
+            temperature=temperature,
+            callbacks=callbacks,
+        )
+        print(f"[LLM 就绪] Groq: {cfg['model']}, temperature={temperature}")
+    else:
+        llm = OllamaLLM(
+            model=cfg["model"],
+            temperature=temperature,
+            num_ctx=num_ctx,
+            callbacks=callbacks,
+        )
+        print(f"[LLM 就绪] Ollama: {cfg['model']}, temperature={temperature}, num_ctx={num_ctx}")
+
+    return llm
+
+
+# ============================================================
+# 4. 构建 RAG Chain
 # ============================================================
 def create_rag_chain(
     retriever,
-    model: str = "qwen3:8b",
+    model: str = None,
     temperature: float = 0.1,
     num_ctx: int = 8192,
     streaming: bool = False,
@@ -95,18 +145,12 @@ def create_rag_chain(
     核心概念：
     - RetrievalQA: LangChain 提供的 RAG 链，自动完成检索 + 生成
     - chain_type="stuff": 最简单的策略，把所有检索到的文档塞进 prompt
-      其他策略: "map_reduce"（分别总结再合并）, "refine"（逐步优化答案）
     - return_source_documents=True: 返回检索到的原始文档，便于追溯
     - temperature=0.1: RAG 任务用低温度，减少幻觉
-    """
-    callbacks = [StreamingStdOutCallbackHandler()] if streaming else []
 
-    llm = OllamaLLM(
-        model=model,
-        temperature=temperature,
-        num_ctx=num_ctx,
-        callbacks=callbacks,
-    )
+    注意：model 参数已废弃，模型由 .env 中的配置决定。
+    """
+    llm = get_langchain_llm(temperature=temperature, num_ctx=num_ctx, streaming=streaming)
 
     chain = RetrievalQA.from_chain_type(
         llm=llm,
@@ -116,12 +160,11 @@ def create_rag_chain(
         chain_type_kwargs={"prompt": rag_prompt},
     )
 
-    print(f"[RAG Chain 就绪] model={model}, temperature={temperature}, num_ctx={num_ctx}")
     return chain
 
 
 # ============================================================
-# 4. 执行 RAG 问答
+# 5. 执行 RAG 问答
 # ============================================================
 def ask(chain, question: str) -> dict:
     """
@@ -153,12 +196,14 @@ def ask(chain, question: str) -> dict:
 
 
 # ============================================================
-# 5. 交互式 RAG 问答
+# 6. 交互式 RAG 问答
 # ============================================================
 def interactive_rag(chain):
     """命令行交互式 RAG 问答。"""
+    cfg = get_llm_config()
     print(f"\n{'='*50}")
-    print("RAG 问答系统 - 输入 /quit 退出")
+    print(f"RAG 问答系统 - 后端: {cfg['backend']}, 模型: {cfg['model']}")
+    print("输入 /quit 退出")
     print(f"{'='*50}\n")
 
     while True:
@@ -184,7 +229,6 @@ def interactive_rag(chain):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="RAG 检索增强生成")
     parser.add_argument("--query", type=str, help="单次提问（不提供则进入交互模式）")
-    parser.add_argument("--model", type=str, default="qwen3:8b", help="LLM 模型")
     parser.add_argument("--collection", type=str, default="rag_docs", help="ChromaDB collection")
     parser.add_argument("--db-path", type=str, default="./chroma_db", help="ChromaDB 路径")
     parser.add_argument("--top-k", type=int, default=3, help="检索文档数量")
@@ -193,7 +237,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     retriever = get_retriever(args.db_path, args.collection, top_k=args.top_k)
-    chain = create_rag_chain(retriever, model=args.model, streaming=args.stream)
+    chain = create_rag_chain(retriever, streaming=args.stream)
 
     if args.query:
         ask(chain, args.query)

@@ -3,8 +3,15 @@
 # 安装: conda activate llm-learn && pip install -r requirements.txt
 # ============================================================
 
-# --- 阶段一：Ollama 基础交互 ---
+# --- 核心：环境变量管理 ---
+python-dotenv
+
+# --- 阶段一：LLM 基础交互 ---
 ollama
+
+# --- 阶段一：Groq 云端 API ---
+groq
+langchain-groq
 
 # --- 阶段二/三：RAG 管道 ---
 langchain

@@ -1,8 +1,8 @@
 """
-Ollama + Qwen3 基础交互练习
+LLM 基础交互练习
 ============================
 学习目标：
-1. 理解 Ollama Python 客户端的基本用法
+1. 理解 LLM 客户端的基本用法（支持 Ollama 本地 / Groq 云端）
 2. 掌握普通调用 vs 流式输出
 3. 实现多轮对话（维护 messages history）
 4. 演示 Qwen3 的 /think 和 /no_think 模式
@@ -11,34 +11,40 @@ Ollama + Qwen3 基础交互练习
 使用方式：
     conda activate llm-learn
     python 01_basics/ollama_client.py
+
+后端切换：
+    修改 .env 文件中的 LLM_BACKEND=ollama 或 LLM_BACKEND=groq
 """
 
-import ollama
+import sys
+import os
+
+# 让 import config 能找到项目根目录
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from config import chat, chat_stream, get_llm_config, print_config
 
 
 # ============================================================
 # 1. 基础调用 - 最简单的一次性问答
 # ============================================================
-def basic_chat(prompt: str, model: str = "qwen3:8b") -> str:
+def basic_chat(prompt: str) -> str:
     """
     最基本的调用方式：发送一条消息，等待完整回复。
 
     核心概念：
-    - model: 使用哪个模型（ollama list 查看已安装的）
+    - 通过 config.chat() 统一接口，自动选择 Ollama 或 Groq 后端
     - messages: 对话历史，格式为 [{"role": "user/assistant/system", "content": "..."}]
-    - response["message"]["content"]: 模型的回复文本
     """
-    response = ollama.chat(
-        model=model,
-        messages=[{"role": "user", "content": prompt}],
+    return chat(
+        [{"role": "user", "content": prompt}],
     )
-    return response["message"]["content"]
 
 
 # ============================================================
 # 2. 流式输出 - 逐 token 输出，体验更好
 # ============================================================
-def stream_chat(prompt: str, model: str = "qwen3:8b"):
+def stream_chat(prompt: str):
     """
     流式调用：模型边生成边输出，不用等全部生成完。
 
@@ -47,19 +53,14 @@ def stream_chat(prompt: str, model: str = "qwen3:8b"):
     - 返回的是一个迭代器，每次 yield 一小段文本
     - 适合长回答或需要实时显示的场景
     """
+    cfg = get_llm_config()
     print(f"\n{'='*50}")
     print(f"[流式输出] 问题: {prompt}")
+    print(f"[后端: {cfg['backend']}, 模型: {cfg['model']}]")
     print(f"{'='*50}")
 
-    stream = ollama.chat(
-        model=model,
-        messages=[{"role": "user", "content": prompt}],
-        stream=True,
-    )
-
     full_response = ""
-    for chunk in stream:
-        text = chunk["message"]["content"]
+    for text in chat_stream([{"role": "user", "content": prompt}]):
         print(text, end="", flush=True)
         full_response += text
 
@@ -70,7 +71,7 @@ def stream_chat(prompt: str, model: str = "qwen3:8b"):
 # ============================================================
 # 3. 多轮对话 - 维护对话历史
 # ============================================================
-def multi_turn_demo(model: str = "qwen3:8b"):
+def multi_turn_demo():
     """
     多轮对话的关键：把之前的 messages 都传给模型。
 
@@ -80,8 +81,9 @@ def multi_turn_demo(model: str = "qwen3:8b"):
     - 每次把完整的对话历史发送给模型
     - messages 越长，消耗的 tokens 越多（注意 context window 限制）
     """
+    cfg = get_llm_config()
     print(f"\n{'='*50}")
-    print("[多轮对话演示]")
+    print(f"[多轮对话演示] 后端: {cfg['backend']}")
     print(f"{'='*50}")
 
     messages = []
@@ -105,8 +107,7 @@ def multi_turn_demo(model: str = "qwen3:8b"):
         print(f"\n用户: {q}")
         messages.append({"role": "user", "content": q})
 
-        response = ollama.chat(model=model, messages=messages)
-        answer = response["message"]["content"]
+        answer = chat(messages)
 
         # 把助手回复也加入历史，这样下一轮模型能看到
         messages.append({"role": "assistant", "content": answer})
@@ -118,7 +119,7 @@ def multi_turn_demo(model: str = "qwen3:8b"):
 # ============================================================
 # 4. Think / No-Think 模式 - Qwen3 特有功能
 # ============================================================
-def thinking_mode_demo(model: str = "qwen3:8b"):
+def thinking_mode_demo():
     """
     Qwen3 支持两种思考模式：
 
@@ -131,28 +132,29 @@ def thinking_mode_demo(model: str = "qwen3:8b"):
     - 在 prompt 前加 /think 或 /no_think 来切换
     - think 模式会返回 <think>...</think> 标签包裹的推理过程
     - 可以通过解析 <think> 标签来分离思考过程和最终答案
+
+    注意：/think /no_think 是 Qwen3 特有功能，Groq 上的其他模型不支持。
     """
+    cfg = get_llm_config()
     print(f"\n{'='*50}")
-    print("[Think / No-Think 模式对比]")
+    print(f"[Think / No-Think 模式对比] 后端: {cfg['backend']}")
     print(f"{'='*50}")
 
     question = "计算 17 * 23 + 45 的结果"
 
     # --- No-Think 模式 ---
     print("\n--- /no_think 模式（快速回答）---")
-    response = ollama.chat(
-        model=model,
-        messages=[{"role": "user", "content": f"/no_think {question}"}],
+    response = chat(
+        [{"role": "user", "content": f"/no_think {question}"}],
     )
-    print(response["message"]["content"])
+    print(response)
 
     # --- Think 模式 ---
     print("\n--- /think 模式（深度思考）---")
-    response = ollama.chat(
-        model=model,
-        messages=[{"role": "user", "content": f"/think {question}"}],
+    response = chat(
+        [{"role": "user", "content": f"/think {question}"}],
     )
-    content = response["message"]["content"]
+    content = response
 
     # 解析 <think> 标签
     if "<think>" in content and "</think>" in content:
@@ -167,57 +169,54 @@ def thinking_mode_demo(model: str = "qwen3:8b"):
 
 
 # ============================================================
-# 5. 调节参数 - Temperature, num_ctx 等
+# 5. 调节参数 - Temperature, top_p 等
 # ============================================================
-def parameter_demo(model: str = "qwen3:8b"):
+def parameter_demo():
     """
     常用参数说明：
 
     - temperature: 控制随机性 (0=确定性, 1=较随机, 2=很随机)
       RAG 任务建议 0.1-0.3，创意任务 0.7+
-    - num_ctx: 上下文窗口大小（token数）
-      Qwen3:8B 最大支持 128k，但本地建议 4096-8192
+    - num_ctx: 上下文窗口大小（token数）— Ollama 专用
     - top_p: nucleus sampling，和 temperature 配合使用
     - seed: 设置随机种子，相同 seed 输出一致（可复现）
     """
+    cfg = get_llm_config()
     prompt = "/no_think 用一句话描述春天"
 
     # --- 实验 1: Temperature 对比 ---
     print(f"\n{'='*50}")
-    print("[实验 1] Temperature 对比")
+    print(f"[实验 1] Temperature 对比 — 后端: {cfg['backend']}")
     print(f"{'='*50}")
     print(f"Prompt: {prompt}")
 
     for temp in [0.1, 0.7, 1.5]:
         print(f"\n  temperature={temp}:")
-        # 同一温度跑两次，观察输出是否一致
         for run in range(2):
-            response = ollama.chat(
-                model=model,
-                messages=[{"role": "user", "content": prompt}],
-                options={"temperature": temp, "num_ctx": 4096},
+            result = chat(
+                [{"role": "user", "content": prompt}],
+                temperature=temp, num_ctx=4096,
             )
-            print(f"    第{run+1}次: {response['message']['content']}")
+            print(f"    第{run+1}次: {result}")
 
     # --- 实验 2: top_p 对比 ---
     print(f"\n{'='*50}")
-    print("[实验 2] top_p 对比（固定 temperature=0.8）")
+    print(f"[实验 2] top_p 对比（固定 temperature=0.8）")
     print(f"{'='*50}")
     print(f"Prompt: {prompt}")
 
     for top_p in [0.3, 0.9, 1.0]:
         print(f"\n  top_p={top_p}:")
         for run in range(2):
-            response = ollama.chat(
-                model=model,
-                messages=[{"role": "user", "content": prompt}],
-                options={"temperature": 0.8, "top_p": top_p, "num_ctx": 4096},
+            result = chat(
+                [{"role": "user", "content": prompt}],
+                temperature=0.8, top_p=top_p, num_ctx=4096,
             )
-            print(f"    第{run+1}次: {response['message']['content']}")
+            print(f"    第{run+1}次: {result}")
 
     # --- 实验 3: Temperature + top_p 组合 ---
     print(f"\n{'='*50}")
-    print("[实验 3] Temperature + top_p 组合效果")
+    print(f"[实验 3] Temperature + top_p 组合效果")
     print(f"{'='*50}")
 
     combos = [
@@ -233,46 +232,41 @@ def parameter_demo(model: str = "qwen3:8b"):
     for combo in combos:
         print(f"\n  {combo['label']} (temp={combo['temperature']}, top_p={combo['top_p']}):")
         for run in range(2):
-            response = ollama.chat(
-                model=model,
-                messages=[{"role": "user", "content": creative_prompt}],
-                options={
-                    "temperature": combo["temperature"],
-                    "top_p": combo["top_p"],
-                    "num_ctx": 4096,
-                },
+            result = chat(
+                [{"role": "user", "content": creative_prompt}],
+                temperature=combo["temperature"],
+                top_p=combo["top_p"],
+                num_ctx=4096,
             )
-            print(f"    第{run+1}次: {response['message']['content']}")
+            print(f"    第{run+1}次: {result}")
 
     # --- 实验 4: seed 可复现性 ---
     print(f"\n{'='*50}")
-    print("[实验 4] seed 可复现性（temperature=0.8, 相同 seed）")
+    print(f"[实验 4] seed 可复现性（temperature=0.8, 相同 seed）")
     print(f"{'='*50}")
     print(f"Prompt: {prompt}")
 
     print("\n  相同 seed=42，两次调用:")
     for run in range(2):
-        response = ollama.chat(
-            model=model,
-            messages=[{"role": "user", "content": prompt}],
-            options={"temperature": 0.8, "seed": 42, "num_ctx": 4096},
+        result = chat(
+            [{"role": "user", "content": prompt}],
+            temperature=0.8, seed=42, num_ctx=4096,
         )
-        print(f"    第{run+1}次: {response['message']['content']}")
+        print(f"    第{run+1}次: {result}")
 
     print("\n  不同 seed（42 vs 123）:")
     for seed in [42, 123]:
-        response = ollama.chat(
-            model=model,
-            messages=[{"role": "user", "content": prompt}],
-            options={"temperature": 0.8, "seed": seed, "num_ctx": 4096},
+        result = chat(
+            [{"role": "user", "content": prompt}],
+            temperature=0.8, seed=seed, num_ctx=4096,
         )
-        print(f"    seed={seed}: {response['message']['content']}")
+        print(f"    seed={seed}: {result}")
 
 
 # ============================================================
 # 6. CLI 交互式聊天
 # ============================================================
-def interactive_chat(model: str = "qwen3:8b"):
+def interactive_chat():
     """
     简单的命令行聊天界面。
 
@@ -282,9 +276,11 @@ def interactive_chat(model: str = "qwen3:8b"):
     - /think  下一条消息使用深度思考
     - /no_think 下一条消息使用快速回答
     - /history 查看对话历史条数
+    - /backend 查看当前后端配置
     """
+    cfg = get_llm_config()
     print(f"\n{'='*50}")
-    print(f"Ollama Chat - 模型: {model}")
+    print(f"LLM Chat - 后端: {cfg['backend']}, 模型: {cfg['model']}")
     print("输入 /quit 退出, /clear 清空历史, /help 查看帮助")
     print(f"{'='*50}\n")
 
@@ -315,19 +311,20 @@ def interactive_chat(model: str = "qwen3:8b"):
         elif user_input == "/history":
             print(f"[当前对话历史: {len(messages)} 条消息]")
             continue
+        elif user_input == "/backend":
+            print_config()
+            continue
         elif user_input == "/help":
-            print("命令: /quit 退出 | /clear 清空 | /history 查看历史")
-            print("技巧: 消息前加 /think 或 /no_think 切换思考模式")
+            print("命令: /quit 退出 | /clear 清空 | /history 查看历史 | /backend 查看后端")
+            print("技巧: 消息前加 /think 或 /no_think 切换思考模式（Qwen3）")
             continue
 
         messages.append({"role": "user", "content": user_input})
 
         # 流式输出回复
         print("助手: ", end="", flush=True)
-        stream = ollama.chat(model=model, messages=messages, stream=True)
         full_response = ""
-        for chunk in stream:
-            text = chunk["message"]["content"]
+        for text in chat_stream(messages):
             print(text, end="", flush=True)
             full_response += text
         print()
@@ -339,14 +336,10 @@ def interactive_chat(model: str = "qwen3:8b"):
 # 主入口
 # ============================================================
 if __name__ == "__main__":
-    import sys
-
-    MODEL = "qwen3:8b"
-
     if len(sys.argv) > 1:
         mode = sys.argv[1]
     else:
-        print("Ollama + Qwen3 学习练习")
+        print_config()
         print("-" * 30)
         print("1. basic    - 基础调用")
         print("2. stream   - 流式输出")
@@ -375,17 +368,17 @@ if __name__ == "__main__":
     mode = mode_map.get(mode, mode)
 
     if mode == "basic":
-        result = basic_chat("用一句话解释什么是大语言模型", MODEL)
+        result = basic_chat("用一句话解释什么是大语言模型")
         print(f"回复: {result}")
     elif mode == "stream":
-        stream_chat("介绍一下 RAG（检索增强生成）的基本原理", MODEL)
+        stream_chat("介绍一下 RAG（检索增强生成）的基本原理")
     elif mode == "multi":
-        multi_turn_demo(MODEL)
+        multi_turn_demo()
     elif mode == "think":
-        thinking_mode_demo(MODEL)
+        thinking_mode_demo()
     elif mode == "params":
-        parameter_demo(MODEL)
+        parameter_demo()
     elif mode == "chat":
-        interactive_chat(MODEL)
+        interactive_chat()
     else:
         print(f"未知模式: {mode}")

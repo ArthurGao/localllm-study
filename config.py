@@ -15,6 +15,7 @@ LLM 后端配置
 """
 
 import os
+import re
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -149,6 +150,11 @@ def _stream_ollama(messages: list[dict], cfg: dict, **options):
         yield chunk["message"]["content"]
 
 
+def _strip_think_tags(text: str) -> str:
+    """移除 Qwen3 等模型返回的 <think>...</think> 标签内容。"""
+    return re.sub(r"<think>.*?</think>\s*", "", text, flags=re.DOTALL).strip()
+
+
 def _chat_groq(messages: list[dict], cfg: dict, **options) -> str:
     client = get_groq_client()
     groq_params = _to_groq_params(options)
@@ -157,7 +163,7 @@ def _chat_groq(messages: list[dict], cfg: dict, **options) -> str:
         messages=messages,
         **groq_params,
     )
-    return response.choices[0].message.content
+    return _strip_think_tags(response.choices[0].message.content)
 
 
 def _stream_groq(messages: list[dict], cfg: dict, **options):
@@ -169,10 +175,32 @@ def _stream_groq(messages: list[dict], cfg: dict, **options):
         stream=True,
         **groq_params,
     )
+    buf = ""
+    in_think = False
     for chunk in stream:
         delta = chunk.choices[0].delta
         if delta.content:
-            yield delta.content
+            buf += delta.content
+            # 跳过 <think>...</think> 块
+            while True:
+                if in_think:
+                    end = buf.find("</think>")
+                    if end == -1:
+                        buf = ""
+                        break
+                    buf = buf[end + len("</think>"):]
+                    in_think = False
+                else:
+                    start = buf.find("<think>")
+                    if start == -1:
+                        if buf:
+                            yield buf
+                            buf = ""
+                        break
+                    if start > 0:
+                        yield buf[:start]
+                    buf = buf[start + len("<think>"):]
+                    in_think = True
 
 
 def _to_ollama_options(options: dict) -> dict:
@@ -202,6 +230,38 @@ def _to_groq_params(options: dict) -> dict:
         result["stop"] = options["stop"]
     # Groq 不支持: top_k, repeat_penalty, num_ctx — 静默忽略
     return result
+
+
+# ============================================================
+# Embedding（根据后端自动选择）
+# ============================================================
+def get_embeddings(model: str = None):
+    """
+    获取 Embedding 模型实例。
+
+    - Ollama 后端: 使用 OllamaEmbeddings（需要 Ollama 运行）
+    - Groq 后端: 使用 sentence-transformers（本地 CPU，无需 Ollama）
+
+    Args:
+        model: 指定模型名。Ollama 默认 "nomic-embed-text"，
+               sentence-transformers 默认 "all-MiniLM-L6-v2"
+    """
+    cfg = get_llm_config()
+
+    if cfg["backend"] == "groq":
+        from langchain_huggingface import HuggingFaceEmbeddings
+
+        model = model or "all-MiniLM-L6-v2"
+        embeddings = HuggingFaceEmbeddings(model_name=model)
+        print(f"[Embedding] sentence-transformers: {model}")
+    else:
+        from langchain_ollama import OllamaEmbeddings
+
+        model = model or "nomic-embed-text"
+        embeddings = OllamaEmbeddings(model=model)
+        print(f"[Embedding] Ollama: {model}")
+
+    return embeddings
 
 
 # ============================================================

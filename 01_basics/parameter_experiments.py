@@ -72,7 +72,7 @@ def experiment_temperature():
     """
     header("实验 1: Temperature（温度）")
 
-    prompt = "/no_think 用一句话描述春天"
+    prompt = "用一句话描述春天"
     print(f"  Prompt: {prompt}")
     print(f"  观察: 温度越低，两次输出越相似")
 
@@ -96,7 +96,7 @@ def experiment_top_p():
     """
     header("实验 2: top_p（核采样）")
 
-    prompt = "/no_think 用一句话描述春天"
+    prompt = "用一句话描述春天"
     print(f"  Prompt: {prompt}")
     print(f"  固定: temperature=0.8")
     print(f"  观察: top_p 越小，输出越保守/重复")
@@ -105,7 +105,7 @@ def experiment_top_p():
                    fixed_options={"temperature": 0.8, "num_ctx": 4096})
 
     print(f"\n  --- 换一个更有创意空间的 prompt ---")
-    creative = "/no_think 用一个比喻描述人工智能"
+    creative = "用一个比喻描述人工智能"
     print(f"  Prompt: {creative}")
 
     run_comparison(creative, "top_p", [0.3, 0.9],
@@ -123,7 +123,7 @@ def experiment_top_k():
 
     header("实验 3: top_k")
 
-    prompt = "/no_think 写一句关于月亮的诗句"
+    prompt = "写一句关于月亮的诗句"
     print(f"  Prompt: {prompt}")
     print(f"  固定: temperature=0.8, num_ctx=4096")
     print(f"  观察: top_k 越小，输出越单调")
@@ -139,7 +139,7 @@ def experiment_seed():
     """seed 固定随机数生成器。Ollama 和 Groq 都支持。"""
     header("实验 4: seed（随机种子）")
 
-    prompt = "/no_think 用一句话描述春天"
+    prompt = "用一句话描述春天"
     print(f"  Prompt: {prompt}")
     print(f"  固定: temperature=0.8")
 
@@ -176,7 +176,7 @@ def experiment_repeat_penalty():
 
     header("实验 5: repeat_penalty（重复惩罚）")
 
-    prompt = "/no_think 请详细列举春天的5个特征，每个特征用一句话描述"
+    prompt = "请详细列举春天的5个特征，每个特征用一句话描述"
     print(f"  Prompt: {prompt}")
     print(f"  固定: temperature=0.8, num_ctx=4096")
     print(f"  观察: penalty 越低越可能重复用词，越高用词越丰富但可能不自然")
@@ -209,7 +209,7 @@ def experiment_num_ctx():
 
 特别信息：小明最喜欢的季节是秋天，因为他喜欢吃螃蟹。小红最喜欢冬天，因为可以堆雪人。"""
 
-    question = f"/no_think {long_context}\n\n问题：小明为什么最喜欢秋天？"
+    question = f"{long_context}\n\n问题：小明为什么最喜欢秋天？"
 
     print(f"  测试：模型能否正确引用长上下文中的信息")
     print(f"  Prompt 长度: ~{len(question)} 字符")
@@ -232,7 +232,7 @@ def experiment_num_predict():
     """max_tokens 限制模型最多生成多少个 token。Ollama 和 Groq 都支持。"""
     header("实验 7: max_tokens（最大生成长度）")
 
-    prompt = "/no_think 详细介绍 Python 这门编程语言的主要特点"
+    prompt = "详细介绍 Python 这门编程语言的主要特点"
     print(f"  Prompt: {prompt}")
     print(f"  观察: max_tokens 越小，回答越短/被截断")
 
@@ -255,7 +255,7 @@ def experiment_combo():
     """不同场景的推荐参数组合对比。"""
     header("实验 8: 参数组合 — 不同场景推荐配置")
 
-    prompt = "/no_think 写一段关于AI未来发展的思考，3句话"
+    prompt = "写一段关于AI未来发展的思考，3句话"
 
     combos = [
         {

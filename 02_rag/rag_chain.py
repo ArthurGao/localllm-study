@@ -23,9 +23,9 @@ import argparse
 # 让 import config 能找到项目根目录
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from config import get_llm_config
+from config import get_llm_config, get_embeddings
 
-from langchain_ollama import OllamaLLM, OllamaEmbeddings
+from langchain_ollama import OllamaLLM
 from langchain_community.vectorstores import Chroma
 from langchain.prompts import PromptTemplate
 from langchain.chains import RetrievalQA
@@ -47,9 +47,9 @@ def get_retriever(
     核心概念：
     - Retriever: LangChain 的检索抽象，封装了"问题 → 相关文档"的过程
     - search_kwargs["k"]: 返回的文档数量，越多上下文越丰富但也越冗余
-    - Embedding 始终使用 Ollama（本地），即使 LLM 用 Groq
+    - Embedding 根据后端自动选择: Ollama 用 nomic-embed-text, Groq 用 sentence-transformers
     """
-    embeddings = OllamaEmbeddings(model=embedding_model)
+    embeddings = get_embeddings(model=embedding_model)
 
     vectorstore = Chroma(
         collection_name=collection_name,

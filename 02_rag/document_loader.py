@@ -12,9 +12,15 @@
     python 02_rag/document_loader.py --file data/sample.pdf
 """
 
+import sys
 import os
 import argparse
 from pathlib import Path
+
+# 让 import config 能找到项目根目录
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from config import get_embeddings
 
 from langchain_community.document_loaders import (
     PyPDFLoader,
@@ -22,9 +28,7 @@ from langchain_community.document_loaders import (
     UnstructuredMarkdownLoader,
 )
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_ollama import OllamaEmbeddings
 import chromadb
-from chromadb.config import Settings
 
 
 # ============================================================
@@ -101,12 +105,12 @@ def create_vector_store(
 
     核心概念：
     - Embedding: 将文本转换为高维向量（例如 768 维），语义相近的文本向量距离更近
-    - nomic-embed-text: Ollama 提供的 Embedding 模型，本地运行，无需 API Key
+    - Embedding 模型: Ollama 后端用 nomic-embed-text，Groq 后端用 sentence-transformers
     - ChromaDB: 轻量级向量数据库，支持本地持久化存储
     - collection: ChromaDB 中的"表"，一个 collection 存一组相关文档
     """
-    # 初始化 Embedding 模型（通过 Ollama 本地运行）
-    embeddings = OllamaEmbeddings(model=embedding_model)
+    # 根据后端自动选择 Embedding 模型
+    embeddings = get_embeddings(model=embedding_model)
 
     # 初始化 ChromaDB 客户端（持久化到磁盘）
     client = chromadb.PersistentClient(path=persist_directory)
@@ -169,7 +173,7 @@ def test_retrieval(
     - 在向量库中找到最相似的 top_k 个文本块
     - 返回的结果按相似度排序（距离越小越相似）
     """
-    embeddings = OllamaEmbeddings(model=embedding_model)
+    embeddings = get_embeddings(model=embedding_model)
     client = chromadb.PersistentClient(path=persist_directory)
     collection = client.get_collection(collection_name)
 

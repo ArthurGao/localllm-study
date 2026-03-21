@@ -1,0 +1,119 @@
+Python 机器学习基础知识
+========================
+
+一、NumPy 基础
+
+NumPy 是 Python 科学计算的核心库，提供高性能的多维数组对象。
+
+核心数据结构 ndarray：
+- 所有元素类型相同（同质数组）
+- 支持向量化运算，比 Python 列表快 10-100 倍
+- 支持广播机制（Broadcasting）
+- 底层用 C 实现
+
+常用操作：
+- np.array()：创建数组
+- np.zeros(), np.ones()：创建全零/全一数组
+- np.dot()：矩阵乘法
+- np.linalg.norm()：计算向量范数
+
+在 RAG 中的应用：
+- 计算向量的余弦相似度
+- 对 Embedding 向量进行归一化
+- 批量计算距离矩阵
+
+二、Pandas 基础
+
+Pandas 提供了 DataFrame 和 Series 两种核心数据结构。
+
+DataFrame 是二维表格数据结构：
+- 每列可以有不同的数据类型
+- 支持标签索引
+- 内置丰富的数据清洗和分析方法
+
+在 RAG 评估中的应用：
+- 存储和分析评估结果
+- 计算各指标的统计信息
+- 生成对比表格
+
+三、Scikit-learn 基础
+
+Scikit-learn 是最流行的 Python 机器学习库。
+
+核心模块：
+1. 分类（Classification）：SVM、随机森林、逻辑回归
+2. 回归（Regression）：线性回归、岭回归
+3. 聚类（Clustering）：K-Means、DBSCAN
+4. 降维（Dimensionality Reduction）：PCA、t-SNE、UMAP
+5. 特征工程（Feature Engineering）：标准化、编码
+
+在 RAG 中的应用：
+- UMAP/t-SNE 可视化 Embedding 向量分布
+- 聚类分析文档主题
+- TF-IDF 作为 BM25 的基础
+
+四、PyTorch 基础
+
+PyTorch 是深度学习框架，也是大多数 Embedding 模型的底层框架。
+
+核心概念：
+- Tensor：多维数组，支持 GPU 加速
+- Autograd：自动微分引擎
+- nn.Module：神经网络模块基类
+
+在 RAG 中的关联：
+- Embedding 模型（如 BERT、nomic-embed-text）基于 PyTorch
+- Cross-Encoder Reranker 是 PyTorch 模型
+- 微调 Embedding 模型需要 PyTorch
+
+五、向量运算在 RAG 中的应用
+
+5.1 余弦相似度计算
+
+给定两个向量 A 和 B：
+cosine_similarity = dot(A, B) / (norm(A) * norm(B))
+
+Python 实现：
+import numpy as np
+def cosine_similarity(a, b):
+    return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+
+5.2 批量相似度计算
+
+对于 N 个文档向量和 1 个查询向量：
+- 将所有文档向量组成矩阵 D (N × d)
+- 查询向量 q (d,)
+- 批量计算：similarities = D @ q / (norms_D * norm_q)
+
+这比逐一计算快很多，因为利用了矩阵运算的并行性。
+
+5.3 向量归一化
+
+归一化后的向量，余弦相似度等价于内积：
+v_normalized = v / np.linalg.norm(v)
+cosine_sim(a_norm, b_norm) = np.dot(a_norm, b_norm)
+
+大多数向量数据库在存储前会自动归一化向量。
+
+六、Python 最佳实践
+
+6.1 虚拟环境管理
+
+推荐使用 conda 管理 Python 环境：
+- conda create -n llm-learn python=3.11
+- conda activate llm-learn
+- pip install -r requirements.txt
+
+6.2 依赖管理
+
+requirements.txt 应该固定版本号：
+- langchain==0.3.x
+- chromadb==0.5.x
+- ollama==0.4.x
+
+6.3 环境变量
+
+使用 .env 文件管理敏感信息：
+- API Key 不要硬编码在代码中
+- 使用 python-dotenv 加载 .env 文件
+- .env 文件必须添加到 .gitignore
